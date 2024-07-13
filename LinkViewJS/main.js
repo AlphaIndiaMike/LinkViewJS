@@ -12,7 +12,6 @@ function handleMapFileUpload(event) {
     reader.onload = function(e) {
         mapFileContents = e.target.result;
         console.log("Map file loaded, length:", mapFileContents.length);
-        console.log("First 200 characters of MAP file:", mapFileContents.substring(0, 200));
         if (ldFileContents) {
             parseFiles();
         }
@@ -29,20 +28,21 @@ function handleLdFileUpload(event) {
         ldFileContents = e.target.result;
         console.log("LD file loaded, length:", ldFileContents.length);
         console.log("LD file contents:");
-        const memorySection = ldFileContents.match(/MEMORY\s*{[^}]+}/);
-        if (memorySection) {
-            console.log(memorySection[0]);
-        } else {
-            console.log("MEMORY section not found in LD file");
+        console.log(ldFileContents);
+        
+        try {
+            memoryLayout = parseLdScript(ldFileContents);
+            console.log("Parsed memory layout:");
+            for (const [name, region] of Object.entries(memoryLayout)) {
+                console.log(`${name}:`);
+                console.log(`  Type: ${region.type}`);
+                console.log(`  Start: 0x${region.start.toString(16)} (${region.start} bytes)`);
+                console.log(`  Size: ${region.size} bytes (${(region.size / 1024).toFixed(2)} KB)`);
+            }
+        } catch (error) {
+            console.error("Error parsing LD script:", error);
         }
-        memoryLayout = parseLdScript(ldFileContents);
-        console.log("Parsed memory layout:");
-        for (const [name, region] of Object.entries(memoryLayout)) {
-            console.log(`${name}:`);
-            console.log(`  Type: ${region.type}`);
-            console.log(`  Start: 0x${region.start.toString(16)} (${region.start} bytes)`);
-            console.log(`  Size: ${region.size} bytes (${(region.size / 1024).toFixed(2)} KB)`);
-        }
+
         if (mapFileContents) {
             parseFiles();
         }
@@ -53,10 +53,21 @@ function handleLdFileUpload(event) {
 
 function parseFiles() {
     console.log("Parsing files...");
-    const { sections, symbols } = parseMapFile(mapFileContents, memoryLayout);
+    console.log("Memory layout:", memoryLayout);
+    console.log("Map file contents length:", mapFileContents.length);
     
-    console.log("Visualizing memory...");
-    visualizeMemory(memoryLayout, sections, symbols);
-    console.log("Displaying symbols...");
-    displaySymbols(symbols, memoryLayout);
+    try {
+        const { objects, organizedSymbols } = parseMapFile(mapFileContents, memoryLayout);
+        
+        console.log("Parsed objects:", objects);
+        console.log("Organized symbols:", organizedSymbols);
+        
+        console.log("Visualizing memory...");
+        visualizeMemory(memoryLayout, objects, organizedSymbols);
+        console.log("Displaying symbols...");
+        displaySymbols(organizedSymbols);
+    } catch (error) {
+        console.error("Error parsing files:", error);
+        console.error("Stack trace:", error.stack);
+    }
 }

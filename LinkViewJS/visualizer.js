@@ -1,59 +1,66 @@
-function visualizeMemory(layout, sections, symbols) {
+function visualizeMemory(memoryLayout, objects, organizedSymbols) {
     const visualizationDiv = document.getElementById('memoryVisualization');
     visualizationDiv.innerHTML = '';
 
-    const totalSize = Object.values(layout).reduce((sum, mem) => sum + mem.size, 0);
+    const totalSize = Object.values(memoryLayout).reduce((sum, region) => sum + region.size, 0);
 
-    for (const [name, info] of Object.entries(layout)) {
-        const block = document.createElement('div');
-        block.className = `memory-block ${info.type.toLowerCase()}`;
-        const heightPercentage = (info.size / totalSize) * 100;
-        block.style.height = `${heightPercentage}vh`;
-        block.innerHTML = `<strong>${name} (${info.type})</strong><br>${info.start.toString(16)} - ${(info.start + info.size).toString(16)}`;
-        
-        const relevantSections = sections.filter(s => s.address >= info.start && s.address < (info.start + info.size));
-        relevantSections.forEach(section => {
-            const sectionDiv = document.createElement('div');
-            sectionDiv.className = `section ${section.name}`;
-            const sectionHeightPercentage = (section.size / info.size) * 100;
-            const sectionTopPercentage = ((section.address - info.start) / info.size) * 100;
-            sectionDiv.style.height = `${sectionHeightPercentage}%`;
-            sectionDiv.style.top = `${sectionTopPercentage}%`;
-            sectionDiv.innerHTML = `${section.name}: ${section.size} bytes`;
-            block.appendChild(sectionDiv);
-        });
-
+    for (const [name, region] of Object.entries(memoryLayout)) {
+        const block = createMemoryBlock(name, region, totalSize);
+        const symbols = organizedSymbols[name] || [];
+        visualizeSymbols(block, region, symbols);
         visualizationDiv.appendChild(block);
     }
 }
 
-function displaySymbols(symbols, memoryLayout) {
+function createMemoryBlock(name, region, totalSize) {
+    const block = document.createElement('div');
+    block.className = `memory-block ${name.toLowerCase()}`;
+    const heightPercentage = (region.size / totalSize) * 100;
+    block.style.height = `${heightPercentage}vh`;
+    block.innerHTML = `<strong>${name} (${region.type})</strong><br>0x${region.start.toString(16)} - 0x${(region.start + region.size).toString(16)}`;
+    return block;
+}
+
+function visualizeSymbols(block, region, symbols) {
+    symbols.forEach(symbol => {
+        const symbolElement = document.createElement('div');
+        symbolElement.className = 'symbol';
+        const topPercentage = ((symbol.address - region.start) / region.size) * 100;
+        symbolElement.style.top = `${topPercentage}%`;
+        symbolElement.title = `${symbol.name} (0x${symbol.address.toString(16)})`;
+        block.appendChild(symbolElement);
+    });
+}
+
+function displaySymbols(organizedSymbols) {
     const symbolListDiv = document.getElementById('symbolList');
     symbolListDiv.innerHTML = '';
 
-    const table = document.createElement('table');
-    table.className = 'table';
-    table.innerHTML = `
-        <thead>
-            <tr>
-                <th>Symbol</th>
-                <th>Address</th>
-                <th>Memory Region</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${symbols.map(symbol => {
-                const region = getMemoryRegionForAddress(symbol.address, memoryLayout);
-                return `
+    for (const [region, symbols] of Object.entries(organizedSymbols)) {
+        const regionHeader = document.createElement('h3');
+        regionHeader.textContent = region;
+        symbolListDiv.appendChild(regionHeader);
+
+        const table = document.createElement('table');
+        table.className = 'table table-sm';
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Address</th>
+                    <th>Object</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${symbols.map(symbol => `
                     <tr>
                         <td>${symbol.name}</td>
                         <td>0x${symbol.address.toString(16)}</td>
-                        <td>${region || 'Unknown'}</td>
+                        <td>${symbol.object || 'N/A'}</td>
                     </tr>
-                `;
-            }).join('')}
-        </tbody>
-    `;
-
-    symbolListDiv.appendChild(table);
+                `).join('')}
+            </tbody>
+        `;
+        symbolListDiv.appendChild(table);
+    }
 }
