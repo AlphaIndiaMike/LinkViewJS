@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARM4/7 Map File Visualizer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .memory-block {
+            width: 100%;
+            margin-bottom: 5px;
+            padding: 5px;
+            color: white;
+            overflow: hidden;
+        }
+        .flash { background-color: #ffc107; }
+        .ram { background-color: #17a2b8; }
+        .section {
+            opacity: 0.8;
+            margin: 2px 0;
+            padding: 2px;
+        }
+        .text { background-color: #28a745; }
+        .data { background-color: #dc3545; }
+        .bss { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">ARM4/7 Map File Visualizer</h1>
+        <div class="mb-3">
+            <label for="mapFileInput" class="form-label">Upload Map File</label>
+            <input class="form-control" type="file" id="mapFileInput" accept=".map">
+        </div>
+        <div class="mb-3">
+            <label for="ldFileInput" class="form-label">Upload Linker Script</label>
+            <input class="form-control" type="file" id="ldFileInput" accept=".ld">
+        </div>
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <h2>Memory Representation</h2>
+                <div id="memoryVisualization"></div>
+            </div>
+            <div class="col-md-6">
+                <h2>Symbols</h2>
+                <div id="symbolList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let mapFileContents = '';
+        let ldFileContents = '';
+
+        document.getElementById('mapFileInput').addEventListener('change', handleMapFileUpload);
+        document.getElementById('ldFileInput').addEventListener('change', handleLdFileUpload);
+
+        function handleMapFileUpload(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                mapFileContents = e.target.result;
+                if (ldFileContents) {
+                    parseFiles();
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        function handleLdFileUpload(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                ldFileContents = e.target.result;
+                if (mapFileContents) {
+                    parseFiles();
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        function parseFiles() {
+            const memoryLayout = parseLdScript(ldFileContents);
+            const sections = parseMapFile(mapFileContents);
+            
+            visualizeMemory(memoryLayout, sections);
+            displaySymbols(sections);
+        }
+
+        function parseLdScript(contents) {
+            const memoryRegex = /MEMORY\s*{([^}]+)}/;
+            const memoryMatch = contents.match(memoryRegex);
+            
+            if (!memoryMatch) return {};
+
+            const memoryDefinitions = memoryMatch[1].trim().split('\n');
+            const memoryLayout = {};
+
+            memoryDefinitions.forEach(def => {
+                const [name, attributes] = def.trim().split(':');
+                if (name && attributes) {
+                    const [type, startHex, sizeHex] = attributes.trim().split(/\s+/);
+                    const start = parseInt(startHex, 16);
+                    const size = parseInt(sizeHex.replace(/[KMG]$/, ''), 16);
+                    memoryLayout[name.trim()] = { type, start, size };
+                }
+            });
+
+            return memoryLayout;
+        }
+
+        function parseMapFile(contents) {
+            const sectionRegex = /^\s*\.(text|data|bss)\s+0x([0-9a-f]+)\s+0x([0-9a-f]+)/gm;
+            const sections = [];
+            let match;
+
+            while ((match = sectionRegex.exec(contents)) !== null) {
+                sections.push({
+                    name: match[1],
+                    address: parseInt(match[2], 16),
+                    size: parseInt(match[3], 16)
+                });
+            }
+
+            return sections;
+        }
+
+        function visualizeMemory(layout, sections) {
+            const visualizationDiv = document.getElementById('memoryVisualization');
+            visualizationDiv.innerHTML = '';
+
+            const totalSize = Object.values(layout).reduce((sum, mem) => sum + mem.size, 0);
+
+            for (const [name, info] of Object.entries(layout)) {
+                const block = document.createElement('div');
+                block.className = `memory-block ${info.type.toLowerCase()}`;
+                const heightPercentage = (info.size / totalSize) * 100;
+                block.style.height = `${heightPercentage}vh`;
+                block.innerHTML = `<strong>${name} (${info.type})</strong><br>${info.start.toString(16)} - ${(info.start + info.size).toString(16)}`;
+                
+                const relevantSections = sections.filter(s => s.address >= info.start && s.address < (info.start + info.size));
+                relevantSections.forEach(section => {
+                    const sectionDiv = document.createElement('div');
+                    sectionDiv.className = `section ${section.name}`;
+                    const sectionHeightPercentage = (section.size / info.size) * 100;
+                    const sectionTopPercentage = ((section.address - info.start) / info.size) * 100;
+                    sectionDiv.style.height = `${sectionHeightPercentage}%`;
+                    sectionDiv.style.marginTop = `${sectionTopPercentage}%`;
+                    sectionDiv.innerHTML = `${section.name}: ${section.size} bytes`;
+                    block.appendChild(sectionDiv);
+                });
+
+                visualizationDiv.appendChild(block);
+            }
+        }
+
+        function displaySymbols(sections) {
+            const symbolListDiv = document.getElementById('symbolList');
+            symbolListDiv.innerHTML = '';
+
+            const table = document.createElement('table');
+            table.className = 'table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Section</th>
+                        <th>Address</th>
+                        <th>Size</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sections.map(section => `
+                        <tr>
+                            <td>${section.name}</td>
+                            <td>0x${section.address.toString(16)}</td>
+                            <td>${section.size} bytes</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+
+            symbolListDiv.appendChild(table);
+        }
+    </script>
+</body>
+</html>
