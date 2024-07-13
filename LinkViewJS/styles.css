@@ -1,0 +1,23 @@
+.memory-block {
+    width: 100%;
+    margin-bottom: 5px;
+    padding: 5px;
+    color: white;
+    position: relative;
+}
+.flash { background-color: #ffc107; }
+.ram { background-color: #17a2b8; }
+.section {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    opacity: 0.8;
+    padding: 2px;
+    font-size: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.text { background-color: #28a745; }
+.data { background-color: #dc3545; }
+.bss { background-color: #6c757d; }
