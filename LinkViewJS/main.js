@@ -57,13 +57,13 @@ function parseFiles() {
     console.log("Map file contents length:", mapFileContents.length);
     
     try {
-        const { objects, organizedSymbols } = parseMapFile(mapFileContents, memoryLayout);
+        const { sections, organizedSymbols } = parseMapFile(mapFileContents, memoryLayout);
         
-        console.log("Parsed objects:", objects);
+        console.log("Parsed objects:", sections);
         console.log("Organized symbols:", organizedSymbols);
         
         console.log("Visualizing memory...");
-        visualizeMemory(memoryLayout, objects, organizedSymbols);
+        visualizeMemory(memoryLayout, sections, organizedSymbols);
         console.log("Displaying symbols...");
         displaySymbols(organizedSymbols);
     } catch (error) {
