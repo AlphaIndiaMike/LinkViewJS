@@ -53,88 +53,171 @@ class ObjectFile {
     }
 }
 
-function* lexer(input) {
-    debug(`Starting lexer`);
-    let current = 0;
-    let parsingStarted = false;
-    let tokenCount = 0;
+const TOKEN_TYPES = [
+    {
+        type: 'PARSING_START',
+        pattern: /^Linker script and memory map/,
+        priority: 5
+    },
+    {
+        type: 'HEX_NUMBER',
+        pattern: /^0x[0-9a-fA-F]+/,
+        priority: 4
+    },
+    {
+        type: 'WHITESPACE',
+        pattern: /^\s+/,
+        priority: -1
+    },
+    {
+        type: 'SECTION_NAME',
+        pattern: /^\.[a-zA-Z_][a-zA-Z0-9_]*/,
+        priority: 2
+    },
+    {
+        type: 'SYMBOL',
+        pattern: /^\.[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+/,
+        priority: 3
+    },
+    {
+        type: 'KEYWORD',
+        pattern: /^(LOAD|START|END|VMA|LMA|File|Offset|Align)/i,
+        priority: 3
+    },
+    {
+        type: 'OBJECT_FILE',
+        pattern: /^(?:\.\/|\/)?\S+(?:\.o|\.a|\.\w+\(\S+\.o\))(?=\s|$)/,
+        priority: 3
+    },
+    {
+        type: 'IDENTIFIER',
+        pattern: /^[a-zA-Z_][a-zA-Z0-9_]*/,
+        priority: 0
+    },
+    {
+        type: 'UNKNOWN',
+        pattern: /^./,
+        priority: -2
+    }
+];
+
+function isPathEnd(str) {
+    return str.endsWith('.o') || str.endsWith('.a') || /\.a\(.+\.o\)$/.test(str);
+}
+
+function initState() {
+    return {
+        parsingStarted: false,
+        lastTokenType: null,
+        tokenCount: 0,
+        inPath: false,
+        pathStart: 0,
+        expectingPath: false
+    };
+}
+
+function handleParsingStart(input, current, state) {
+    const startMatch = input.slice(current).match(TOKEN_TYPES[0].pattern);
+    if (startMatch) {
+        state.parsingStarted = true;
+        return {
+            token: { type: TOKEN_TYPES[0].type, value: startMatch[0] },
+            newCurrent: current + startMatch[0].length
+        };
+    }
+    return { token: null, newCurrent: current + 1 };
+}
+
+function handlePath(input, current, state) {
+    if (input[current] === ' ' && isPathEnd(input.slice(state.pathStart, current))) {
+        const token = { type: 'OBJECT_FILE', value: input.slice(state.pathStart, current) };
+        state.inPath = false;
+        state.lastTokenType = 'OBJECT_FILE';
+        state.tokenCount++;
+        state.expectingPath = false;
+        return { token, newCurrent: current + 1 };
+    }
+    if (current === input.length - 1) {
+        const token = { type: 'OBJECT_FILE', value: input.slice(state.pathStart) };
+        state.inPath = false;
+        state.lastTokenType = 'OBJECT_FILE';
+        state.tokenCount++;
+        state.expectingPath = false;
+        return { token, newCurrent: current + 1 };
+    }
+    return { token: null, newCurrent: current + 1 };
+}
+
+
+function matchToken(slice, sortedTokenTypes) {
+    for (const tokenType of sortedTokenTypes) {
+        const match = slice.match(tokenType.pattern);
+        if (match) {
+            return { type: tokenType.type, value: match[0], length: match[0].length };
+        }
+    }
+    return null;
+}
+
+function handleRegularToken(input, current, state, sortedTokenTypes) {
+    const slice = input.slice(current);
+    const match = matchToken(slice, sortedTokenTypes);
     
-    while (current < input.length) {
-        let char = input[current];
+    if (match) {
+        state.lastTokenType = match.type;
+        state.tokenCount++;
         
-        if (!parsingStarted) {
-            if (input.slice(current).startsWith("Linker script and memory map")) {
-                parsingStarted = true;
-                yield { type: 'PARSING_START', value: "Linker script and memory map" };
-                current += "Linker script and memory map".length;
-                input = input.slice(current).replace(/\r?\n/g, ' ');
-                current = 0;
-            } else {
-                current++;
-            }
-            continue;
+        // Set expectingPath flag if we encounter LOAD or a number
+        if (match.type === 'KEYWORD' && match.value.toUpperCase() === 'LOAD') {
+            state.expectingPath = true;
+        } else if (match.type === 'HEX_NUMBER') {
+            state.expectingPath = true;
+        } else {
+            state.expectingPath = false;
         }
         
-        if (/\s/.test(char)) {
-            current++;
-            continue;
-        }
-        
-        if (char === '.') {
-            let value = '';
-            while (current < input.length && !/\s/.test(input[current])) {
-                value += input[current];
-                current++;
-            }
-            if (value.endsWith('.o')) {
-                yield { type: 'OBJECT_FILE', value };
-            } else if (value.includes('.', 1)) {
-                yield { type: 'SYMBOL', value };
-            } else {
-                yield { type: 'SECTION_NAME', value };
-            }
-            tokenCount++;
-            debug(`Found ${value.endsWith('.o') ? 'OBJECT_FILE' : value.includes('.', 1) ? 'SYMBOL' : 'SECTION_NAME'}`, { value });
-            continue;
-        }
-        
-        if (char === '0' && input[current + 1] === 'x') {
-            let value = '0x';
-            current += 2;
-            while (current < input.length && /[0-9a-fA-F]/.test(input[current])) {
-                value += input[current];
-                current++;
-            }
-            yield { type: 'HEX_NUMBER', value };
-            tokenCount++;
-            debug(`Found HEX_NUMBER`, { value });
-            continue;
-        }
-        
-        if (/[a-zA-Z_]/.test(char)) {
-            let value = '';
-            while (current < input.length && /[a-zA-Z0-9_.]/.test(input[current])) {
-                value += input[current];
-                current++;
-            }
-            if (value === 'LOAD') {
-                yield { type: 'LOAD_DIRECTIVE', value };
-            } else {
-                yield { type: 'IDENTIFIER', value };
-            }
-            tokenCount++;
-            debug(`Found token`, { type: value === 'LOAD' ? 'LOAD_DIRECTIVE' : 'IDENTIFIER', value });
-            continue;
-        }
-        
-        yield { type: 'UNKNOWN', value: char };
-        debug(`Found UNKNOWN token`, { value: char });
-        current++;
-        tokenCount++;
+        return { token: { type: match.type, value: match.value }, newCurrent: current + match.length };
     }
     
-    debug(`Lexer finished`, { totalTokens: tokenCount });
+    return {
+        token: { type: 'UNKNOWN', value: input[current] },
+        newCurrent: current + 1
+    };
 }
+
+function* lexer(input) {
+    let current = 0;
+    const state = initState();
+    const sortedTokenTypes = TOKEN_TYPES.filter(t => t.pattern)
+                                        .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+    while (current < input.length) {
+        let token = null;
+
+        if (!state.parsingStarted) {
+            const result = handleParsingStart(input, current, state);
+            token = result.token;
+            current = result.newCurrent;
+        } else if (state.inPath) {
+            const result = handlePath(input, current, state);
+            token = result.token;
+            current = result.newCurrent;
+        } else if (state.expectingPath && (input[current] === '.' || input[current] === '/')) {
+            state.inPath = true;
+            state.pathStart = current;
+            current++;
+        } else {
+            const result = handleRegularToken(input, current, state, sortedTokenTypes);
+            token = result.token;
+            current = result.newCurrent;
+        }
+
+        if (token) {
+            yield token;
+        }
+    }
+}
+
 
 class Parser {
     constructor(tokens) {
@@ -164,10 +247,6 @@ class Parser {
                 }
             } else if (this.match('SYMBOL')) {
                 this.parseSymbol();
-            } else if (this.match('OBJECT_FILE')) {
-                this.parseObjectFile();
-            } else if (this.match('LOAD_DIRECTIVE')) {
-                this.parseLoadDirective();
             } else if (this.match('UNKNOWN')) {
                 this.debugInfo.warnings.push(`Skipped unknown token: ${this.previous().value}`);
             } else {
@@ -189,9 +268,14 @@ class Parser {
 
         debug(`Parsing section`, { sectionName });
 
-        if (this.match('HEX_NUMBER')) {
+        if (this.peek().type === 'SECTION_NAME') {
+            debug(`Skipping symbol: ${sectionName}`);
+            return null;  // This is a symbol, not a section
+        }
+
+        if (this.match('WHITESPACE') && this.match('HEX_NUMBER')) {
             address = this.previous().value;
-            if (this.match('HEX_NUMBER')) {
+            if (this.match('WHITESPACE') && this.match('HEX_NUMBER')) {
                 size = this.previous().value;
             }
         }
@@ -222,26 +306,31 @@ class Parser {
         let objectFile = null;
         let addressFn = null;
         let fnName = null;
-
+    
         debug(`Parsing symbol`, { symbolName });
-
-        if (this.match('HEX_NUMBER')) {
+    
+        if (this.match('WHITESPACE') && this.match('HEX_NUMBER')) {
             address = this.previous().value;
-            if (this.match('HEX_NUMBER')) {
+            if (this.match('WHITESPACE') && this.match('HEX_NUMBER')) {
                 size = this.previous().value;
-                if (this.match('OBJECT_FILE')) {
+                if (this.match('WHITESPACE') && this.match('OBJECT_FILE')) {
                     objectFile = this.previous().value;
-                    if (this.match('HEX_NUMBER')) {
+                    if (this.match('WHITESPACE') && this.match('HEX_NUMBER')) {
                         addressFn = this.previous().value;
-                        if (this.match('IDENTIFIER')) {
+                        if (this.match('WHITESPACE') && this.match('IDENTIFIER')) {
                             fnName = this.previous().value;
                         }
                     }
                 }
             }
         }
-
-        if (address !== null) {
+    
+        if (address !== null && objectFile !== null) {
+            let sectionObjectFile = this.currentSection.objectFiles.find(of => of.name === objectFile);
+            if (!sectionObjectFile) {
+                sectionObjectFile = new ObjectFile(objectFile);
+                this.currentSection.objectFiles.push(sectionObjectFile);
+            }
             const symbol = new Symbol(
                 symbolName,
                 parseInt(address, 16),
@@ -258,6 +347,7 @@ class Parser {
                 addressFn: symbol.addressFn !== null ? `0x${symbol.addressFn.toString(16)}` : null,
                 fnName: symbol.fnName
             });
+            sectionObjectFile.addSymbol(symbol);
             if (this.currentSection) {
                 this.currentSection.addSymbol(symbol);
                 debug(`Added symbol to current section`, { 
@@ -270,7 +360,7 @@ class Parser {
             }
             return symbol;
         }
-
+    
         this.debugInfo.warnings.push(`Failed to parse symbol: ${symbolName}`);
         debug(`Failed to parse symbol`, { symbolName, address, size, objectFile, addressFn, fnName });
         return null;
@@ -297,13 +387,6 @@ class Parser {
         } else {
             this.debugInfo.warnings.push(`Object file found outside of a section: ${objectFileName}`);
             debug(`Object file found outside of a section`, { objectFileName });
-        }
-    }
-
-    parseLoadDirective() {
-        debug(`Parsing LOAD directive`);
-        while (!this.isAtEnd() && this.peek().type !== 'SECTION_NAME' && this.peek().type !== 'SYMBOL') {
-            this.advance();
         }
     }
 
