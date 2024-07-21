@@ -2,85 +2,109 @@ function visualizeMemory(memoryLayout, sections, organizedSymbols) {
     const visualizationDiv = document.getElementById('memoryVisualization');
     visualizationDiv.innerHTML = '';
 
-    const ldVisualization = document.createElement('div');
-    ldVisualization.className = 'memory-visualization ld-visualization';
-    ldVisualization.innerHTML = '<h3>Linker Script Memory Layout</h3>';
+    const mergedVisualization = document.createElement('div');
+    mergedVisualization.className = 'memory-visualization merged-visualization';
+    mergedVisualization.innerHTML = '<h5>Memory Layout with Sections</h5>';
 
-    const mapVisualization = document.createElement('div');
-    mapVisualization.className = 'memory-visualization map-visualization';
-    mapVisualization.innerHTML = '<h3>Map File Sections</h3>';
-
-    visualizationDiv.appendChild(ldVisualization);
-    visualizationDiv.appendChild(mapVisualization);
+    visualizationDiv.appendChild(mergedVisualization);
 
     const totalSize = Object.values(memoryLayout).reduce((sum, region) => sum + region.size, 0);
 
     // Find the lowest address in the linker script memory layout
     const lowestLdAddress = Math.min(...Object.values(memoryLayout).map(region => region.start));
 
-    // Visualize LD memory layout
-    for (const [name, region] of Object.entries(memoryLayout)) {
-        const block = createMemoryBlock(name, region, totalSize);
-        const symbols = organizedSymbols[name] || [];
-        visualizeSymbols(block, region, symbols);
-        ldVisualization.appendChild(block);
-    }
+    // Consolidate and filter sections
+    const consolidatedSections = consolidateSections(sections, lowestLdAddress);
+    const sortedSections = consolidatedSections.sort((a, b) => a.address - b.address);
 
-     // Visualize Map file sections
-     const consolidatedSections = consolidateSections(sections, lowestLdAddress);
-     const totalSizeMap = consolidatedSections.reduce((sum, section) => sum + section.size, 0);
-     const sortedSections = consolidatedSections.sort((a, b) => a.address - b.address);
-     for (const section of sortedSections) {
-         const block = createSectionBlock(section, totalSizeMap);
-         mapVisualization.appendChild(block);
-     }
+    for (const [name, region] of Object.entries(memoryLayout)) {
+        const memoryBlock = createMemoryBlock(name, region, totalSize);
+        
+        // Find sections that belong to this memory region
+        const regionSections = sortedSections.filter(section => 
+            section.address >= region.start && section.address < (region.start + region.size)
+        );
+
+        // Create section blocks within the memory block
+        if (regionSections.length > 0) {
+            const sectionContainer = document.createElement('div');
+            sectionContainer.className = 'section-container';
+            sectionContainer.style.position = 'relative';
+            sectionContainer.style.height = '40%';
+
+            regionSections.forEach(section => {
+                const sectionBlock = createSectionBlock(section, region.size, region.start);
+                sectionContainer.appendChild(sectionBlock);
+            });
+
+            memoryBlock.appendChild(sectionContainer);
+        }
+
+        // Add symbols
+        const symbols = organizedSymbols[name] || [];
+        visualizeSymbols(memoryBlock, region, symbols);
+
+        mergedVisualization.appendChild(memoryBlock);
+    }
 }
 
 function createMemoryBlock(name, region, totalSize) {
     const block = document.createElement('div');
     block.className = `memory-block ${name.toLowerCase()}`;
-    const heightPercentage = (region.size / totalSize) * 100;
-    block.style.height = `${heightPercentage}vh`;
-    block.innerHTML = `<strong>${name}</strong><br>0x${region.start.toString(16)} - 0x${(region.start + region.size).toString(16)}`;
+    const heightPercentage = (region.size / totalSize) * 2000;
+    block.style.height = `${heightPercentage}px`;
+    block.style.position = 'relative';
+    block.style.border = '2px solid #000';
+    block.style.marginBottom = '5px';
+    block.style.padding = '5px';
+
+    const label = document.createElement('div');
+    label.innerHTML = `<strong>${name}</strong><br>0x${region.start.toString(16)} - 0x${(region.start + region.size).toString(16)}<br>Size: ${formatSize(region.size)}`;
+    label.style.padding = '2px';
+    label.style.marginBottom = '5px';
+
+    block.appendChild(label);
     return block;
 }
 
-function createSectionBlock(section, totalSize) {
+function createSectionBlock(section, regionSize, regionStart) {
     const block = document.createElement('div');
     block.className = `section-block ${section.name.toLowerCase()}`;
     
-    // Adjust the logarithmic scale to make smaller sections more visible
-    const minHeight = 3; // Increased minimum height
-    const maxHeight = 20;
-    const logSize = Math.log(section.size + 1); // Add 1 to avoid log(0)
-    const logTotal = Math.log(totalSize);
-    const heightPercentage = minHeight + ((logSize / logTotal) * (maxHeight - minHeight));
+    const topPercentage = ((section.address - regionStart) / regionSize) * 100;
     
-    block.style.height = `${heightPercentage}vh`;
+    // Ensure a minimum height for visibility, even for 0B sections
+    const minHeight = 0.5; // Minimum height percentage
+    const maxHeight = 50; // Maximum height percentage
+    const logSize = Math.log(Math.max(section.size, 1) + 1); // Ensure positive log value
+    const logMax = Math.log(regionSize);
+    const heightPercentage = Math.max(minHeight, minHeight + ((logSize / logMax) * (maxHeight - minHeight)));
+    
     block.style.position = 'relative';
-    block.style.overflow = 'hidden';
-    block.style.border = '1px solid #ccc';
-    block.style.marginBottom = '2px';
+    block.style.top = `${topPercentage}%`;
+    block.style.height = `${heightPercentage}%`;
+    block.style.left = '0';
+    block.style.right = '0';
     block.style.backgroundColor = getColorForSection(section.name);
+    block.style.border = '1px solid rgba(0, 0, 0, 0.2)';
+    block.style.overflow = 'hidden';
+    block.style.transition = 'opacity 0.3s';
 
     const label = document.createElement('div');
     label.className = 'section-label';
-    label.style.position = 'absolute';
-    label.style.top = '2px';
-    label.style.left = '2px';
-    label.style.right = '2px';
     label.style.fontSize = '10px';
-    label.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
     label.style.padding = '1px';
     label.style.whiteSpace = 'nowrap';
     label.style.overflow = 'hidden';
     label.style.textOverflow = 'ellipsis';
-    label.innerHTML = `<strong>${section.name}</strong> 0x${section.address.toString(16)} (${formatSize(section.size)})`;
+    label.innerHTML = `${section.name} 0x${section.address.toString(16)} (${formatSize(section.size)})`;
+
+    block.appendChild(label);
 
     const tooltip = document.createElement('div');
     tooltip.className = 'section-tooltip';
     tooltip.style.display = 'none';
-    tooltip.style.position = 'absolute';
+    tooltip.style.position = 'fixed'; // Changed to fixed
     tooltip.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
     tooltip.style.color = 'white';
     tooltip.style.padding = '5px';
@@ -88,13 +112,11 @@ function createSectionBlock(section, totalSize) {
     tooltip.style.zIndex = '1000';
     tooltip.innerHTML = `<strong>${section.name}</strong><br>Start: 0x${section.address.toString(16)}<br>End: 0x${(section.address + section.size).toString(16)}<br>Size: ${formatSize(section.size)}`;
 
-    block.appendChild(label);
-    block.appendChild(tooltip);
+    document.body.appendChild(tooltip);
 
-    block.addEventListener('mouseover', (e) => {
+    block.addEventListener('mouseover', () => {
+        block.style.opacity = '0.8';
         tooltip.style.display = 'block';
-        tooltip.style.left = `${e.clientX + 10}px`;
-        tooltip.style.top = `${e.clientY + 10}px`;
     });
 
     block.addEventListener('mousemove', (e) => {
@@ -103,6 +125,7 @@ function createSectionBlock(section, totalSize) {
     });
 
     block.addEventListener('mouseout', () => {
+        block.style.opacity = '1';
         tooltip.style.display = 'none';
     });
 
@@ -116,15 +139,25 @@ function formatSize(size) {
 }
 
 function getColorForSection(sectionName) {
-    // Add a color scheme for different section types
     const colorMap = {
-        '.text': '#FFB3BA',
-        '.data': '#BAFFC9',
-        '.bss': '#BAE1FF',
-        '.rodata': '#FFFFBA',
-        // Add more colors for other section types
+        '.text': '#4CAF50',     // Green
+        '.data': '#2196F3',     // Blue
+        '.bss': 'blue',      
+        '.rodata': '#FF5722',   // Deep Orange
+        '.isr_vector': '#9C27B0', // Purple
+        '.data_init': '#00BCD4', // Cyan
+        '.bss_init': '#CDDC39',  // Lime
     };
-    return colorMap[sectionName] || '#F0F0F0'; // Default color if not specified
+    // Generate a consistent color for unmapped sections
+    if (!colorMap[sectionName]) {
+        let hash = 0;
+        for (let i = 0; i < sectionName.length; i++) {
+            hash = sectionName.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const color = 'grey';
+        colorMap[sectionName] = color;
+    }
+    return colorMap[sectionName];
 }
 
 function consolidateSections(sections, lowestLdAddress) {
@@ -168,7 +201,7 @@ function displaySymbols(organizedSymbols) {
     symbolListDiv.innerHTML = '';
 
     for (const [region, symbols] of Object.entries(organizedSymbols)) {
-        const regionHeader = document.createElement('h3');
+        const regionHeader = document.createElement('h5');
         regionHeader.textContent = region;
         symbolListDiv.appendChild(regionHeader);
 
@@ -177,17 +210,17 @@ function displaySymbols(organizedSymbols) {
         table.innerHTML = `
             <thead>
                 <tr>
-                    <th>Symbol</th>
-                    <th>Address</th>
-                    <th>Object</th>
+                    <th  style="font-size:9pt;">Symbol</th>
+                    <th  style="font-size:9pt;">Address</th>
+                    <th  style="font-size:9pt;">Object</th>
                 </tr>
             </thead>
             <tbody>
                 ${symbols.map(symbol => `
                     <tr>
-                        <td>${symbol.name}</td>
-                        <td>0x${symbol.address.toString(16)}</td>
-                        <td>${symbol.object || 'N/A'}</td>
+                        <td style="font-size:9pt;">${symbol.name}</td>
+                        <td style="font-size:9pt;">0x${symbol.address.toString(16)}</td>
+                        <td style="font-size:9pt;">${symbol.objectFile || 'N/A'}</td>
                     </tr>
                 `).join('')}
             </tbody>
