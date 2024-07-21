@@ -56,6 +56,15 @@ function parseFiles() {
     console.log("Memory layout:", memoryLayout);
     console.log("Map file contents length:", mapFileContents.length);
     
+    // Disable form inputs
+    document.querySelectorAll('#uploadForm input').forEach(input => input.disabled = true);
+    
+    // Show reset button
+    document.getElementById('resetButton').style.display = 'block';
+    
+    // Show result sections
+    document.getElementById('resultSections').style.display = 'flex';
+    
     try {
         const { sections, organizedSymbols } = parseMapFile(mapFileContents, memoryLayout);
         
@@ -71,3 +80,8 @@ function parseFiles() {
         console.error("Stack trace:", error.stack);
     }
 }
+
+// Add reset functionality
+document.getElementById('resetButton').addEventListener('click', () => {
+    location.reload();
+});

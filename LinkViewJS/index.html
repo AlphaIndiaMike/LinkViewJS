@@ -8,27 +8,37 @@
     <link href="styles.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-5">
-        <h1 class="mb-4">ARM4/7 Map File Visualizer</h1>
-        <div class="mb-3">
-            <label for="mapFileInput" class="form-label">Upload Map File</label>
-            <input class="form-control" type="file" id="mapFileInput" accept=".map">
-        </div>
-        <div class="mb-3">
-            <label for="ldFileInput" class="form-label">Upload Linker Script</label>
-            <input class="form-control" type="file" id="ldFileInput" accept=".ld">
-        </div>
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <h4>Memory Representation</h4>
-                <div id="memoryVisualization"></div>
+    <div class="container-fluid mt-5">
+        <div class="content-wrapper">
+            <h1 class="mb-4">ARM4/7 Map File Visualizer</h1>
+            <div id="uploadForm">
+                <div class="form-fields">
+                    <div class="mb-3">
+                        <label for="mapFileInput" class="form-label">Upload Map File</label>
+                        <input class="form-control" type="file" id="mapFileInput" accept=".map">
+                    </div>
+                    <div class="mb-3">
+                        <label for="ldFileInput" class="form-label">Upload Linker Script</label>
+                        <input class="form-control" type="file" id="ldFileInput" accept=".ld">
+                    </div>
+                </div>
+                <div class="button-container">
+                    <button id="resetButton" class="btn btn-secondary">Reset</button>
+                </div>
             </div>
-            <div class="col-md-6">
-                <h4>Symbols</h4>
-                <div id="symbolList"></div>
+            <div id="resultSections">
+                <div>
+                    <h4>Memory Representation</h4>
+                    <div id="memoryVisualization"></div>
+                </div>
+                <div>
+                    <h4>Symbols</h4>
+                    <div id="symbolList"></div>
+                </div>
             </div>
         </div>
     </div>
+
 
     <script src="parse_ld.js"></script>
     <script src="parse_map.js"></script>

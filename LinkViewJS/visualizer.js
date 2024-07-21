@@ -4,7 +4,7 @@ function visualizeMemory(memoryLayout, sections, organizedSymbols) {
 
     const mergedVisualization = document.createElement('div');
     mergedVisualization.className = 'memory-visualization merged-visualization';
-    mergedVisualization.innerHTML = '<h5>Memory Layout with Sections</h5>';
+    mergedVisualization.innerHTML = '<h6>Memory Layout with Sections</h6>';
 
     visualizationDiv.appendChild(mergedVisualization);
 
@@ -71,7 +71,7 @@ function createSectionBlock(section, regionSize, regionStart) {
     const block = document.createElement('div');
     block.className = `section-block ${section.name.toLowerCase()}`;
     
-    const topPercentage = ((section.address - regionStart) / regionSize) * 100;
+    const topPercentage = ((section.address - regionStart) / regionSize);
     
     // Ensure a minimum height for visibility, even for 0B sections
     const minHeight = 0.5; // Minimum height percentage
@@ -201,30 +201,34 @@ function displaySymbols(organizedSymbols) {
     symbolListDiv.innerHTML = '';
 
     for (const [region, symbols] of Object.entries(organizedSymbols)) {
-        const regionHeader = document.createElement('h5');
+        const regionHeader = document.createElement('h6');
         regionHeader.textContent = region;
         symbolListDiv.appendChild(regionHeader);
 
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-responsive';
+
         const table = document.createElement('table');
-        table.className = 'table table-sm';
+        table.className = 'table table-sm table-striped';
         table.innerHTML = `
             <thead>
                 <tr>
-                    <th  style="font-size:9pt;">Symbol</th>
-                    <th  style="font-size:9pt;">Address</th>
-                    <th  style="font-size:9pt;">Object</th>
+                    <th style="font-size:9pt; width: 40%;">Symbol</th>
+                    <th style="font-size:9pt; width: 20%;">Address</th>
+                    <th style="font-size:9pt; width: 40%;">Object</th>
                 </tr>
             </thead>
             <tbody>
                 ${symbols.map(symbol => `
                     <tr>
-                        <td style="font-size:9pt;">${symbol.name}</td>
+                        <td style="font-size:9pt; word-break: break-word;">${symbol.name}</td>
                         <td style="font-size:9pt;">0x${symbol.address.toString(16)}</td>
-                        <td style="font-size:9pt;">${symbol.objectFile || 'N/A'}</td>
+                        <td style="font-size:9pt; word-break: break-word;">${symbol.objectFile || 'N/A'}</td>
                     </tr>
                 `).join('')}
             </tbody>
         `;
-        symbolListDiv.appendChild(table);
+        tableWrapper.appendChild(table);
+        symbolListDiv.appendChild(tableWrapper);
     }
 }

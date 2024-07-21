@@ -21,3 +21,44 @@
 .text { background-color: #28a745; }
 .data { background-color: #dc3545; }
 .bss { background-color: #6c757d; }
+
+.content-wrapper {
+    width: 100%;
+    padding: 0 15px;
+}
+
+#resetButton {
+    display: none;
+}
+
+#uploadForm {
+    display: flex;
+    flex-direction: column;
+}
+.form-fields {
+    display: flex;
+    flex-direction: column;
+}
+.button-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+#resultSections {
+    display: none;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-top: 2rem;
+}
+#resultSections > div {
+    flex: 1;
+}
+
+@media (max-width: 768px) {
+    #resultSections {
+        flex-direction: column;
+    }
+    #resultSections > div {
+        width: 100%;
+    }
+}
