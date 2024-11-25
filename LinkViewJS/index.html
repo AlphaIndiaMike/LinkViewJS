@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARM4/7 Map File Visualizer</title>
+    <title>ARM GCC Memory Map Visualizer</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
     <link href="styles.css" rel="stylesheet">
 </head>
 <body>
     <div class="container-fluid mt-5">
         <div class="content-wrapper">
-            <h1 class="mb-4">ARM4/7 Map File Visualizer</h1>
+            <h1 class="mb-4">ARM GCC Memory Map Visualizer</h1>
             <div id="uploadForm">
                 <div class="form-fields">
                     <div class="mb-3">
@@ -21,9 +21,20 @@
                         <label for="ldFileInput" class="form-label">Upload Linker Script</label>
                         <input class="form-control" type="file" id="ldFileInput" accept=".ld">
                     </div>
+                    <div class="mb-3">
+                        <label for="ldFileInput" class="form-label">RAM Budget</label>
+                        <input class="form-control" type="text" id="ramBudget">
+                    </div>
+                    <div class="mb-3">
+                        <label for="ldFileInput" class="form-label">Flash Budget</label>
+                        <input class="form-control" type="text" id="flashBudget">
+                    </div>
                 </div>
                 <div class="button-container">
                     <button id="resetButton" class="btn btn-secondary">Reset</button>
+                </div>
+                <div class="button-calculate">
+                    <button id="actionButton" class="btn btn-secondary">Calculate</button>
                 </div>
             </div>
             <div id="resultSections">
@@ -39,7 +50,7 @@
         </div>
     </div>
 
-
+    <script src="ast_base.js"></script>
     <script src="parse_ld.js"></script>
     <script src="parse_map.js"></script>
     <script src="visualizer.js"></script>
