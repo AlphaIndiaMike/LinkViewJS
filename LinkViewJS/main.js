@@ -41,47 +41,55 @@ function parseFiles() {
     console.log("Parsing files...");
 
     // Tokenize the ldFileContents using AST_Base
+    var ldParser = new AST_LD("ENTRY");
+    ldParser.tokens = ldParser.tokenize(ldFileContents);
+    ldParser.parse();
 
-            var ldParser = new AST_LD("ENTRY");
-            ldParser.tokens = ldParser.tokenize(ldFileContents);
-            ldParser.parse();
-    
-            // Check for parsing errors
-            if (ldParser.errors.length > 0) {
-                console.warn("Parsing completed with errors:");
-                ldParser.errors.forEach(error => {
-                    console.warn(error.message);
-                });
-            } else {
-                console.log("Parsing completed successfully.");
-            }
-    
-            console.log("AST:", JSON.stringify(ldParser.ast, null, 2));
-    
-            // You can now use ldParser.ast for further processing
-            //memoryLayout = buildMemoryLayoutFromAST(ldParser.ast);
-            //console.log("Memory Layout:", memoryLayout);
+    // Check for parsing errors
+    if (ldParser.errors.length > 0) {
+        console.warn("Parsing completed with errors:");
+        ldParser.errors.forEach(error => {
+            console.warn(error.message);
+        });
+    } else {
+        console.log("Parsing completed successfully.");
+    }
 
-        // Assuming parseLdScript uses the tokens
-        /* memoryLayout = parseLdScript(ldTokens);
-        console.log("Parsed memory layout:");
-        for (const [name, region] of Object.entries(memoryLayout)) {
-            console.log(`${name}:`);
-            console.log(`  Type: ${region.type}`);
-            console.log(`  Start: 0x${region.start.toString(16)} (${region.start} bytes)`);
-            console.log(`  Size: ${region.size} bytes (${(region.size / 1024).toFixed(2)} KB)`);
-        }
-            */
+    console.log("AST:", JSON.stringify(ldParser.ast, null, 2));
+    
+    // For RAM
+    const ramStartAddress = 0x20000000;
+    const ramBudget = 128 * 1024; //KB
+    const ramUsage = ldParser.calculateMemoryUsage(ramStartAddress, ramBudget);
+    console.log("RAM Memory Usage:", ramUsage);
+
+    // For FLASH
+    const flashStartAddress = 0x8000000
+    const flashBudget = 512 * 1024; //KB
+    const flashUsage = ldParser.calculateMemoryUsage(flashStartAddress, flashBudget);
+    console.log("FLASH Memory Usage:", flashUsage);
+
 
     // Tokenize the mapFileContents using AST_Base
-    try {
-        var mapTokenizer = new AST_Base("Linker script and memory map");
-        var mapTokens = mapTokenizer.tokenize(mapFileContents);
-        console.log("Map Tokens:");
-        console.log(mapTokens);
-    } catch (error) {
-        console.error("Error tokenizing map file:", error);
+    // Instantiate the parser with a starter string (e.g., "ENTRY")
+    var mapParser = new AST_MAP("Memory Configuration");
+
+    // Tokenize the map file contents
+    mapParser.tokens = mapParser.tokenize(mapFileContents);
+    console.info("HERE!");
+    console.info(mapParser.tokens);
+
+    // Parse the tokens to build the AST
+    mapParser.parse();
+
+    // Access the AST
+    console.log(JSON.stringify(mapParser.ast, null, 2));
+
+    // Handle any parsing errors
+    if (mapParser.errors.length > 0) {
+        console.info("Errors encountered during parsing:", mapParser.errors);
     }
+
 
     /* 
     // Continue with parsing and visualizing

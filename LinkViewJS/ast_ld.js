@@ -1,57 +1,67 @@
 class AST_LD extends AST_Base {
     constructor(starterString) {
         super(starterString);
-        this.ast = null;
+        this.ast = {
+            type: 'LinkerScript',
+            memories: [],
+            sections: [],
+            constants: []
+        };
         this.currentIndex = 0;
         this.errors = [];
+        this.isInsideComment = false;
     }
 
     parse() {
         this.currentIndex = 0;
-        this.ast = {
-            type: 'LinkerScript',
-            memories: [],
-            sections: []
-        };
 
         console.info(this.tokens);
 
         while (this.currentIndex < this.tokens.length) {
             const token = this.peek();
 
-            if (this.isInsideComment === true)
-            {
-                if (!this.isCommentEnd())
-                {
+            if (this.isInsideComment) {
+                if (!this.isCommentEnd()) {
                     this.consumeComment();
-                }
-                else
-                {
+                } else {
                     this.consumeComment();
                     this.isInsideComment = false;
                 }
+                continue;
             }
-            else if (this.isKeyword('MEMORY')) {
+
+            if (this.isKeyword('MEMORY')) {
                 console.log(`Parsing MEMORY block at token index ${this.currentIndex}`);
                 const memoryBlock = this.parseMemoryBlock();
                 if (memoryBlock) {
-                    this.ast.memories = memoryBlock.regions;
+                    this.ast.memories = this.ast.memories.concat(memoryBlock.regions);
                     console.log("Parsed MEMORY block:", memoryBlock);
                 }
             } else if (this.isKeyword('SECTIONS')) {
                 console.log(`Parsing SECTIONS block at token index ${this.currentIndex}`);
                 const sectionsBlock = this.parseSectionsBlock();
                 if (sectionsBlock) {
-                    this.ast.sections = sectionsBlock.sections;
+                    this.ast.sections = this.ast.sections.concat(sectionsBlock.sections);
                     console.log("Parsed SECTIONS block:", sectionsBlock);
                 }
+            } else if (this.isConstant()) {
+                console.log(`Parsing CONSTANT at token index ${this.currentIndex}`);
+                const constant = this.parseConstant();
+                if (constant) {
+                    this.ast.constants.push(constant);
+                    console.log("Parsed CONSTANT:", constant);
+                }
+            } else if (this.isKeyword('/DISCARD/')) {
+                console.log(`Handling /DISCARD/ at token index ${this.currentIndex}`);
+                this.handleDiscard();
+                break; // Stop parsing after handling /DISCARD/
             } else {
                 // Skip unknown tokens or comments
                 if (this.isCommentStart()) {
                     this.consumeComment();
                     this.isInsideComment = true;
                 } else {
-                    console.warn(`Unknown token at index ${this.currentIndex}:`, token);
+                    console.warn(`Unknown token at index ${this.currentIndex}:`, token.value);
                     this.consume();
                 }
             }
@@ -79,7 +89,6 @@ class AST_LD extends AST_Base {
             const message = `Expected ${expectedType} '${expectedValue}', but found ${
                 token ? `${token.type} '${token.value}'` : 'end of input'
             } at index ${this.currentIndex - 1}`;
-            //console.error(message);
             this.addError(message);
             return null;
         }
@@ -91,7 +100,12 @@ class AST_LD extends AST_Base {
 
     isKeyword(value) {
         const token = this.peek();
-        return token && token.type === 'word' && token.value === value;
+        return token && token.type === 'word' && token.value.toUpperCase() === value.toUpperCase();
+    }
+
+    isConstant() {
+        const token = this.peek();
+        return token && token.type === 'word' && token.value.startsWith('_');
     }
 
     isCommentStart() {
@@ -101,13 +115,12 @@ class AST_LD extends AST_Base {
 
     isCommentEnd() {
         const token = this.peek();
-        return token && token.type === 'word' && token.value.startsWith('*/');
+        return token && token.type === 'word' && token.value.endsWith('*/');
     }
 
     consumeComment() {
         const token = this.consume();
         console.log(`Skipping comment at index ${this.currentIndex - 1}:`, token.value);
-        // Comments are assumed to be consumed as one token
     }
 
     parseMemoryBlock() {
@@ -155,30 +168,23 @@ class AST_LD extends AST_Base {
 
         let accessRights = null;
         if (this.peek() && this.peek().type === 'word') {
-            accessRights = '';
-            const token = this.consume();
-            accessRights += token.value;
+            accessRights = this.consume().value;
         }
 
         const colon = this.expect('word', ':');
         if (!colon) return null;
 
         const originKey = this.expect('word', 'ORIGIN');
-        console.debug("origin key: "+ originKey);
+        console.debug("origin key: " + originKey);
         if (!originKey) return null;
 
         const equalSign1 = this.expect('word', '=');
-        console.debug("eq key: "+ equalSign1);
+        console.debug("eq key: " + equalSign1);
         if (!equalSign1) return null;
 
         const originValue = this.parseExpression();
-        console.debug("origin value: "+ originValue);
+        console.debug("origin value: " + originValue);
         if (originValue === null) return null;
-
-        /* Bug in the AST Base 
-        const comma = this.expect('word', ',');
-        if (!comma) return null;
-        */
 
         const lengthKey = this.expect('word', 'LENGTH');
         if (!lengthKey) return null;
@@ -251,41 +257,41 @@ class AST_LD extends AST_Base {
         while (this.currentIndex < this.tokens.length) {
             const nextToken = this.peek();
 
-            if (this.isInsideComment === true)
-            {
-                if (!this.isCommentEnd())
-                {
+            if (this.isInsideComment) {
+                if (!this.isCommentEnd()) {
                     this.consumeComment();
-                }
-                else
-                {
+                } else {
                     this.consumeComment();
                     this.isInsideComment = false;
                 }
+                continue;
             }
-            else
-            {
-                if (nextToken && nextToken.type === 'word' && nextToken.value === '}') {
-                    this.consume();
-                    console.log("Closing SECTIONS block");
-                    break;
-                }
 
-                if (this.isCommentStart()) {
-                    this.consumeComment();
-                    this.isInsideComment = true;
-                    continue;
-                }
-                else{
-                    const section = this.parseSectionDefinition();
-                    if (section) {
-                        sections.push(section);
-                        console.log("Parsed section:", section);
-                    } else {
-                        console.warn(`Failed to parse section at index ${this.currentIndex}`);
-                        this.consume();
-                    }
-                }
+            if (nextToken && nextToken.type === 'word' && nextToken.value === '}') {
+                this.consume();
+                console.log("Closing SECTIONS block");
+                break;
+            }
+
+            if (this.isCommentStart()) {
+                this.consumeComment();
+                this.isInsideComment = true;
+                continue;
+            }
+
+            if (this.isKeyword('/DISCARD/')) {
+                console.log(`Handling /DISCARD/ at token index ${this.currentIndex}`);
+                this.handleDiscard();
+                continue;
+            }
+
+            const section = this.parseSectionDefinition();
+            if (section) {
+                sections.push(section);
+                console.log("Parsed section:", section);
+            } else {
+                console.warn(`Failed to parse section at index ${this.currentIndex}`);
+                this.consume();
             }
         }
 
@@ -310,37 +316,30 @@ class AST_LD extends AST_Base {
         while (this.currentIndex < this.tokens.length && braceCount > 0) {
             const token = this.peek();
 
-            if (this.isInsideComment === true)
-            {
-                if (!this.isCommentEnd())
-                {
+            if (this.isInsideComment) {
+                if (!this.isCommentEnd()) {
                     this.consumeComment();
-                }
-                else
-                {
+                } else {
                     this.consumeComment();
                     this.isInsideComment = false;
                 }
+                continue;
             }
-            else
-            {
-                if (this.isCommentStart()) {
-                    this.consumeComment();
-                    this.isInsideComment = true;
-                    continue;
-                }
-                else
-                {
-                    if (token.type === 'word' && token.value === '{') {
-                        braceCount++;
-                        this.consume();
-                    } else if (token.type === 'word' && token.value === '}') {
-                        braceCount--;
-                        this.consume();
-                    } else {
-                        this.consume();
-                    }
-                }
+
+            if (this.isCommentStart()) {
+                this.consumeComment();
+                this.isInsideComment = true;
+                continue;
+            }
+
+            if (token.type === 'word' && token.value === '{') {
+                braceCount++;
+                this.consume();
+            } else if (token.type === 'word' && token.value === '}') {
+                braceCount--;
+                this.consume();
+            } else {
+                this.consume();
             }
         }
 
@@ -359,10 +358,10 @@ class AST_LD extends AST_Base {
                         memoryRegion = this.expect('word');
                         if (!memoryRegion) return null;
                     }
-                    if (this.peek().value==='AT'){
-                        this.consume();//AT
-                        this.consume();//>
-                        this.consume();//ORIGIAL MEM
+                    if (this.peek() && this.peek().value === 'AT') {
+                        this.consume(); // AT
+                        this.consume(); // >
+                        this.consume(); // ORIGINAL MEM
                         console.debug("corner case AT");
                     }
                 }
@@ -372,12 +371,11 @@ class AST_LD extends AST_Base {
                     memoryRegion = this.expect('word');
                     if (!memoryRegion) return null;
                 } else {
-                    this.consume();//AT
-                    this.consume();//>
-                    this.consume();//ORIGIAL MEM
+                    this.consume(); // >
+                    this.consume(); // ORIGINAL MEM
                 }
             }
-        }        
+        }
 
         // Consume optional semicolon or comma
         if (
@@ -395,34 +393,176 @@ class AST_LD extends AST_Base {
         };
     }
 
-    calculateMemoryUsage(memoryType, startAddress, budget) {
-        const memoryRegions = this.ast.memories.filter(mem =>
-            mem.name.toUpperCase() === memoryType.toUpperCase()
-        );
+    parseConstant() {
+        const name = this.expect('word');
+        if (!name) return null;
 
-        if (memoryRegions.length === 0) {
-            const message = `Memory type '${memoryType}' not found in linker script.`;
-            console.error(message);
-            return {
-                error: message,
-            };
+        const equalSign = this.expect('word', '=');
+        if (!equalSign) return null;
+
+        const valueToken = this.peek();
+        if (!valueToken) {
+            this.addError(`Expected value for constant ${name} at index ${this.currentIndex}`);
+            return null;
         }
 
-        // Sum up the lengths of the memory regions of the specified type
-        const totalDeclaredMemory = memoryRegions.reduce((acc, mem) => acc + mem.length, 0);
+        let value;
+        if (valueToken.type === 'number_hex' || valueToken.type === 'number_dec') {
+            value = this.consume().value;
+        } else {
+            this.addError(`Unsupported constant value type: ${valueToken.type} '${valueToken.value}' at index ${this.currentIndex}`);
+            this.consume();
+            return null;
+        }
 
-        // Since we cannot determine actual used memory from the linker script alone, we'll assume the declared length is the used memory
-        const usedMemory = totalDeclaredMemory;
+        // Consume optional semicolon
+        if (
+            this.peek() &&
+            this.peek().type === 'word' &&
+            this.peek().value === ';'
+        ) {
+            this.consume();
+        }
 
-        const usagePct = ((usedMemory / budget) * 100).toFixed(2);
+        // Handle inline comment after constant
+        if (this.isCommentStart()) {
+            this.consumeComment();
+            this.isInsideComment = true;
+        }
 
         return {
-            memoryType: memoryType,
-            startAddress: startAddress,
-            used: usedMemory,
+            type: 'Constant',
+            name: name,
+            value: value
+        };
+    }
+
+    handleDiscard() {
+        this.consume(); // consume '/DISCARD/'
+        // Optionally, consume ':' if present
+        if (this.peek() && this.peek().value === ':') {
+            this.consume();
+        }
+        console.log("Encountered /DISCARD/, handling discard block.");
+
+        // If the next token is '{', consume the block
+        if (this.peek() && this.peek().value === '{') {
+            this.consume(); // consume '{'
+            let braceCount = 1;
+
+            while (this.currentIndex < this.tokens.length && braceCount > 0) {
+                const token = this.peek();
+
+                if (this.isInsideComment) {
+                    if (!this.isCommentEnd()) {
+                        this.consumeComment();
+                    } else {
+                        this.consumeComment();
+                        this.isInsideComment = false;
+                    }
+                    continue;
+                }
+
+                if (this.isCommentStart()) {
+                    this.consumeComment();
+                    this.isInsideComment = true;
+                    continue;
+                }
+
+                if (token.value === '{') {
+                    braceCount++;
+                } else if (token.value === '}') {
+                    braceCount--;
+                }
+
+                this.consume();
+            }
+
+            if (braceCount !== 0) {
+                this.addError("Mismatched braces in /DISCARD/ section.");
+            } else {
+                console.log("Finished handling /DISCARD/ block.");
+            }
+        }
+
+        console.log("Encountered /DISCARD/, stopping parsing.");
+        // After handling /DISCARD/, stop parsing
+    }
+
+    /**
+     * Calculates memory usage based on startAddress and budget.
+     * @param {number} startAddress - The starting address of the memory region.
+     * @param {number} budget - The total memory budget (size) for the calculation.
+     * @returns {object} - An object containing memory usage details or an error.
+     */
+    calculateMemoryUsage(startAddress, budget) {
+        // Convert startAddress to a number if it's a hex string
+        if (typeof startAddress === 'string') {
+            if (startAddress.startsWith('0x') || startAddress.startsWith('0X')) {
+                const parsedAddress = parseInt(startAddress, 16);
+                if (isNaN(parsedAddress)) {
+                    const message = `Invalid hexadecimal start address: ${startAddress}`;
+                    console.error(message);
+                    return { error: message };
+                }
+                console.debug(`Converted startAddress from hex string '${startAddress}' to decimal ${parsedAddress}`);
+                startAddress = parsedAddress;
+            } else {
+                // Assume it's a decimal string
+                const parsedAddress = parseInt(startAddress, 10);
+                if (isNaN(parsedAddress)) {
+                    const message = `Invalid start address: ${startAddress}`;
+                    console.error(message);
+                    return { error: message };
+                }
+                console.debug(`Converted startAddress from decimal string '${startAddress}' to number ${parsedAddress}`);
+                startAddress = parsedAddress;
+            }
+        } else if (typeof startAddress !== 'number') {
+            const message = `startAddress must be a number or a hexadecimal string. Received type: ${typeof startAddress}`;
+            console.error(message);
+            return { error: message };
+        }
+
+        console.debug(`Starting memory usage calculation with startAddress: 0x${startAddress.toString(16)} (${startAddress}) and budget: ${budget} bytes`);
+
+        // Find the memory region that includes the startAddress
+        const memoryRegion = this.ast.memories.find(mem => {
+            console.debug(`Checking memory region '${mem.name}': Origin = 0x${mem.origin.toString(16)} (${mem.origin}), Length = ${mem.length} bytes`);
+            const inRegion = startAddress >= mem.origin && startAddress < (mem.origin + mem.length);
+            console.debug(`  Is startAddress within '${mem.name}'? ${inRegion}`);
+            return inRegion;
+        });
+
+        if (!memoryRegion) {
+            const message = `No memory region found for start address: 0x${startAddress.toString(16)}`;
+            console.error(message);
+            return { error: message };
+        }
+
+        // Calculate the available memory from the startAddress
+        const available = (memoryRegion.origin + memoryRegion.length) - startAddress;
+        console.debug(`Available memory in '${memoryRegion.name}' from startAddress: ${available} bytes`);
+
+        if (budget > available) {
+            const message = `Budget (${budget} bytes) exceeds available memory (${available} bytes) from start address: 0x${startAddress.toString(16)}`;
+            console.error(message);
+            return { error: message };
+        }
+
+        const used = budget;
+        const free = available - used;
+        const usage_pct = ((used / available) * 100).toFixed(2);
+
+        console.debug(`Memory Usage for '${memoryRegion.name}': Used = ${used} bytes, Free = ${free} bytes, Usage = ${usage_pct}%`);
+
+        return {
+            memoryType: memoryRegion.name,
+            startAddress: `0x${startAddress.toString(16)}`,
+            used: used,
             budget: budget,
-            free: budget - usedMemory,
-            usage_pct: usagePct,
+            free: free,
+            usage_pct: usage_pct,
         };
     }
 }
