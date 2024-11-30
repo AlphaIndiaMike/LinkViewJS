@@ -30,34 +30,74 @@ class AST_Base {
         const tokens = [];
 
         for (const tokenStr of rawTokens) {
-            // For number matching, remove trailing punctuation
-            const cleanedTokenStr = tokenStr.replace(/[^\w]$/, '');
+            if (tokenStr.includes('>')) {
+                const splitParts = tokenStr.split('>');
+                splitParts.forEach((part, index) => {
+                    if (part) {
+                        const cleanedPart = part.replace(/[^\w]$/, '');
+                        let match;
 
-            let match;
+                        // Check for size_gb
+                        if ((match = cleanedPart.match(/^0*([0-9]+)[Gg]$/))) {
+                            tokens.push({ type: 'size_gb', value: AST_Base.removeLeadingZeros(match[1]) });
+                        }
+                        // Check for size_mb
+                        else if ((match = cleanedPart.match(/^0*([0-9]+)[Mm]$/))) {
+                            tokens.push({ type: 'size_mb', value: AST_Base.removeLeadingZeros(match[1]) });
+                        }
+                        // Check for size_kb
+                        else if ((match = cleanedPart.match(/^0*([0-9]+)[Kk]$/))) {
+                            tokens.push({ type: 'size_kb', value: AST_Base.removeLeadingZeros(match[1]) });
+                        }
+                        // Check for number_hex
+                        else if ((match = cleanedPart.match(/^0x0*([0-9A-Fa-f]+)$/))) {
+                            tokens.push({ type: 'number_hex', value: AST_Base.removeLeadingZeros(match[1]).toUpperCase() });
+                        }
+                        // Check for number_dec
+                        else if ((match = cleanedPart.match(/^0*([0-9]+)$/))) {
+                            tokens.push({ type: 'number_dec', value: AST_Base.removeLeadingZeros(match[1]) });
+                        }
+                        // Else, classify as word (including punctuation)
+                        else {
+                            tokens.push({ type: 'word', value: part });
+                        }
+                    }
 
-            // Check for size_gb
-            if ((match = cleanedTokenStr.match(/^0*([0-9]+)[Gg]$/))) {
-                tokens.push({ type: 'size_gb', value: AST_Base.removeLeadingZeros(match[1]) });
-            }
-            // Check for size_mb
-            else if ((match = cleanedTokenStr.match(/^0*([0-9]+)[Mm]$/))) {
-                tokens.push({ type: 'size_mb', value: AST_Base.removeLeadingZeros(match[1]) });
-            }
-            // Check for size_kb
-            else if ((match = cleanedTokenStr.match(/^0*([0-9]+)[Kk]$/))) {
-                tokens.push({ type: 'size_kb', value: AST_Base.removeLeadingZeros(match[1]) });
-            }
-            // Check for number_hex
-            else if ((match = cleanedTokenStr.match(/^0x0*([0-9A-Fa-f]+)$/))) {
-                tokens.push({ type: 'number_hex', value: AST_Base.removeLeadingZeros(match[1]).toUpperCase() });
-            }
-            // Check for number_dec
-            else if ((match = cleanedTokenStr.match(/^0*([0-9]+)$/))) {
-                tokens.push({ type: 'number_dec', value: AST_Base.removeLeadingZeros(match[1]) });
-            }
-            // Else, classify as word (including punctuation)
-            else {
-                tokens.push({ type: 'word', value: tokenStr });
+                    // Add '>' as a separate token except after the last part
+                    if (index < splitParts.length - 1) {
+                        tokens.push({ type: 'word', value: '>' });
+                    }
+                });
+            } else {
+                // For number matching, remove trailing punctuation
+                const cleanedTokenStr = tokenStr.replace(/[^\w]$/, '');
+
+                let match;
+
+                // Check for size_gb
+                if ((match = cleanedTokenStr.match(/^0*([0-9]+)[Gg]$/))) {
+                    tokens.push({ type: 'size_gb', value: AST_Base.removeLeadingZeros(match[1]) });
+                }
+                // Check for size_mb
+                else if ((match = cleanedTokenStr.match(/^0*([0-9]+)[Mm]$/))) {
+                    tokens.push({ type: 'size_mb', value: AST_Base.removeLeadingZeros(match[1]) });
+                }
+                // Check for size_kb
+                else if ((match = cleanedTokenStr.match(/^0*([0-9]+)[Kk]$/))) {
+                    tokens.push({ type: 'size_kb', value: AST_Base.removeLeadingZeros(match[1]) });
+                }
+                // Check for number_hex
+                else if ((match = cleanedTokenStr.match(/^0x0*([0-9A-Fa-f]+)$/))) {
+                    tokens.push({ type: 'number_hex', value: AST_Base.removeLeadingZeros(match[1]).toUpperCase() });
+                }
+                // Check for number_dec
+                else if ((match = cleanedTokenStr.match(/^0*([0-9]+)$/))) {
+                    tokens.push({ type: 'number_dec', value: AST_Base.removeLeadingZeros(match[1]) });
+                }
+                // Else, classify as word (including punctuation)
+                else {
+                    tokens.push({ type: 'word', value: tokenStr });
+                }
             }
         }
 

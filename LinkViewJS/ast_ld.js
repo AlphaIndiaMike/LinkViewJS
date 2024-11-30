@@ -349,24 +349,35 @@ class AST_LD extends AST_Base {
 
         if (currentToken && currentToken.type === 'word') {
             if (currentToken.value.includes('>')) {
-                // Scenario 1: Token includes '>' (e.g., ">memoryRegion")
                 const parts = currentToken.value.split('>');
-                if (parts.length > 1 && parts[1].trim()) {
+                if (parts.length > 1 && parts[1].trim() && memoryRegion === null) {
                     memoryRegion = parts[1].trim();
                     this.consume();
                 } else {
-                    // Handle case where '>' is present but no memory region follows
+                    this.consume();
+                    if (memoryRegion === null) {
+                        memoryRegion = this.expect('word');
+                        if (!memoryRegion) return null;
+                    }
+                    if (this.peek().value==='AT'){
+                        this.consume();//AT
+                        this.consume();//>
+                        this.consume();//ORIGIAL MEM
+                        console.debug("corner case AT");
+                    }
+                }
+            } else if (currentToken.value === '>') {
+                if (memoryRegion === null) {
                     this.consume();
                     memoryRegion = this.expect('word');
                     if (!memoryRegion) return null;
+                } else {
+                    this.consume();//AT
+                    this.consume();//>
+                    this.consume();//ORIGIAL MEM
                 }
-            } else if (currentToken.value === '>') {
-                // Scenario 2: Token is exactly '>'
-                this.consume();
-                memoryRegion = this.expect('word');
-                if (!memoryRegion) return null;
             }
-        }
+        }        
 
         // Consume optional semicolon or comma
         if (
