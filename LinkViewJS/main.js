@@ -41,11 +41,26 @@ function parseFiles() {
     console.log("Parsing files...");
 
     // Tokenize the ldFileContents using AST_Base
-    try {
-        var ldTokenizer = new AST_Base("MEMORY");
-        var ldTokens = ldTokenizer.tokenize(ldFileContents);
-        console.log("LD Tokens:");
-        console.log(ldTokens);
+
+            var ldParser = new AST_LD("ENTRY");
+            ldParser.tokens = ldParser.tokenize(ldFileContents);
+            ldParser.parse();
+    
+            // Check for parsing errors
+            if (ldParser.errors.length > 0) {
+                console.warn("Parsing completed with errors:");
+                ldParser.errors.forEach(error => {
+                    console.warn(error.message);
+                });
+            } else {
+                console.log("Parsing completed successfully.");
+            }
+    
+            console.log("AST:", JSON.stringify(ldParser.ast, null, 2));
+    
+            // You can now use ldParser.ast for further processing
+            //memoryLayout = buildMemoryLayoutFromAST(ldParser.ast);
+            //console.log("Memory Layout:", memoryLayout);
 
         // Assuming parseLdScript uses the tokens
         /* memoryLayout = parseLdScript(ldTokens);
@@ -57,9 +72,6 @@ function parseFiles() {
             console.log(`  Size: ${region.size} bytes (${(region.size / 1024).toFixed(2)} KB)`);
         }
             */
-    } catch (error) {
-        console.error("Error parsing LD script:", error);
-    }
 
     // Tokenize the mapFileContents using AST_Base
     try {
