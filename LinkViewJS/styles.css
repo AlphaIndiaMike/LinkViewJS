@@ -68,3 +68,77 @@
         width: 100%;
     }
 }
+
+/* Style for Memory Usage Section */
+#memoryUsage {
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+}
+
+#memoryUsage h4 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.memory-visualization.merged-visualization h6 {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+/* Responsive adjustments for pie charts */
+@media (max-width: 768px) {
+    #memoryUsage .row {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    #memoryUsage .col-md-6 {
+        width: 100%;
+        max-width: 300px;
+        margin-bottom: 20px;
+    }
+}
+
+/* Memory Container Styles */
+.memory-container {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    background-color: #fff;
+    height: 600px; /* Adjust as needed */
+    overflow-y: auto;
+}
+
+/* Section Block Styles */
+.section-block {
+    width: 100%;
+    position: absolute;
+    left: 0;
+}
+
+.section-label {
+    color: white;
+    font-weight: bold;
+}
+
+/* Tooltip Styles */
+.section-tooltip {
+    display: none;
+    position: fixed;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px;
+    border-radius: 3px;
+    z-index: 1000;
+}
+
+/* Symbol Styles */
+.symbol {
+    position: absolute;
+    width: 100%;
+    height: 5px; /* Adjust height as needed */
+    background-color: #FFC0CB; /* Light Pink */
+    opacity: 0.6;
+    cursor: pointer;
+}

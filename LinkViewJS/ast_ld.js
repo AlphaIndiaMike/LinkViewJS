@@ -31,28 +31,28 @@ class AST_LD extends AST_Base {
             }
 
             if (this.isKeyword('MEMORY')) {
-                console.log(`Parsing MEMORY block at token index ${this.currentIndex}`);
+                //console.log(`Parsing MEMORY block at token index ${this.currentIndex}`);
                 const memoryBlock = this.parseMemoryBlock();
                 if (memoryBlock) {
                     this.ast.memories = this.ast.memories.concat(memoryBlock.regions);
-                    console.log("Parsed MEMORY block:", memoryBlock);
+                    //console.log("Parsed MEMORY block:", memoryBlock);
                 }
             } else if (this.isKeyword('SECTIONS')) {
-                console.log(`Parsing SECTIONS block at token index ${this.currentIndex}`);
+                //console.log(`Parsing SECTIONS block at token index ${this.currentIndex}`);
                 const sectionsBlock = this.parseSectionsBlock();
                 if (sectionsBlock) {
                     this.ast.sections = this.ast.sections.concat(sectionsBlock.sections);
-                    console.log("Parsed SECTIONS block:", sectionsBlock);
+                    //console.log("Parsed SECTIONS block:", sectionsBlock);
                 }
             } else if (this.isConstant()) {
-                console.log(`Parsing CONSTANT at token index ${this.currentIndex}`);
+                //console.log(`Parsing CONSTANT at token index ${this.currentIndex}`);
                 const constant = this.parseConstant();
                 if (constant) {
                     this.ast.constants.push(constant);
-                    console.log("Parsed CONSTANT:", constant);
+                    //console.log("Parsed CONSTANT:", constant);
                 }
             } else if (this.isKeyword('/DISCARD/')) {
-                console.log(`Handling /DISCARD/ at token index ${this.currentIndex}`);
+                //console.log(`Handling /DISCARD/ at token index ${this.currentIndex}`);
                 this.handleDiscard();
                 break; // Stop parsing after handling /DISCARD/
             } else {
@@ -120,7 +120,7 @@ class AST_LD extends AST_Base {
 
     consumeComment() {
         const token = this.consume();
-        console.log(`Skipping comment at index ${this.currentIndex - 1}:`, token.value);
+        //console.log(`Skipping comment at index ${this.currentIndex - 1}:`, token.value);
     }
 
     parseMemoryBlock() {
@@ -137,7 +137,7 @@ class AST_LD extends AST_Base {
 
             if (nextToken && nextToken.type === 'word' && nextToken.value === '}') {
                 this.consume();
-                console.log("Closing MEMORY block");
+                //console.log("Closing MEMORY block");
                 break;
             }
 
@@ -149,7 +149,7 @@ class AST_LD extends AST_Base {
             const region = this.parseMemoryRegion();
             if (region) {
                 regions.push(region);
-                console.log("Parsed memory region:", region);
+                //console.log("Parsed memory region:", region);
             } else {
                 console.warn(`Failed to parse memory region at index ${this.currentIndex}`);
                 this.consume();
@@ -269,7 +269,7 @@ class AST_LD extends AST_Base {
 
             if (nextToken && nextToken.type === 'word' && nextToken.value === '}') {
                 this.consume();
-                console.log("Closing SECTIONS block");
+                //console.log("Closing SECTIONS block");
                 break;
             }
 
@@ -280,7 +280,7 @@ class AST_LD extends AST_Base {
             }
 
             if (this.isKeyword('/DISCARD/')) {
-                console.log(`Handling /DISCARD/ at token index ${this.currentIndex}`);
+                //console.log(`Handling /DISCARD/ at token index ${this.currentIndex}`);
                 this.handleDiscard();
                 continue;
             }
@@ -288,7 +288,7 @@ class AST_LD extends AST_Base {
             const section = this.parseSectionDefinition();
             if (section) {
                 sections.push(section);
-                console.log("Parsed section:", section);
+                //console.log("Parsed section:", section);
             } else {
                 console.warn(`Failed to parse section at index ${this.currentIndex}`);
                 this.consume();
@@ -443,7 +443,7 @@ class AST_LD extends AST_Base {
         if (this.peek() && this.peek().value === ':') {
             this.consume();
         }
-        console.log("Encountered /DISCARD/, handling discard block.");
+        //console.log("Encountered /DISCARD/, handling discard block.");
 
         // If the next token is '{', consume the block
         if (this.peek() && this.peek().value === '{') {
@@ -481,11 +481,11 @@ class AST_LD extends AST_Base {
             if (braceCount !== 0) {
                 this.addError("Mismatched braces in /DISCARD/ section.");
             } else {
-                console.log("Finished handling /DISCARD/ block.");
+                //console.log("Finished handling /DISCARD/ block.");
             }
         }
 
-        console.log("Encountered /DISCARD/, stopping parsing.");
+        //console.log("Encountered /DISCARD/, stopping parsing.");
         // After handling /DISCARD/, stop parsing
     }
 
